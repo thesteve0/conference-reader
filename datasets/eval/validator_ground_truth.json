@@ -1,0 +1,14 @@
+{
+  "_comment": "Ground truth labels for poster validation testing. true = valid poster, false = invalid (QR code, partial crop, etc.), null = not yet labeled",
+  "IMG_1199.JPG": true,
+  "IMG_1200.JPG": false,
+  "IMG_1205.JPG": false,
+  "IMG_1208.JPG": false,
+  "IMG_1220.JPEG": true,
+  "IMG_1221.JPEG": false,
+  "IMG_1222.JPEG": true,
+  "IMG_1223.JPEG": false,
+  "IMG_1227.JPEG": true,
+  "IMG_1228.JPEG": false,
+  "IMG_1238.JPEG": false
+}

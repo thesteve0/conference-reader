@@ -1,0 +1,177 @@
+# Conference Reader - TODO List
+# Updated: 2026-01-14
+
+## NEXT SESSION: SmolLM3 Summarization Implementation
+
+### Phase 1: Research & Experimentation (Do First)
+
+[ ] Research SmolLM3 model variants
+    - Compare 135M, 360M, 1.7B, 3B parameter models
+    - Check memory requirements for each
+    - Review quantization options (4-bit, 8-bit, fp16, fp32)
+    - Decision: Which model & quantization for our use case?
+
+[ ] Test SmolLM3 model loading
+    - Write exploration script to load model
+    - Measure GPU memory usage
+    - Measure inference speed (single vs batch)
+    - Verify ROCm/AMD GPU acceleration works
+    - Check if model fits in 48GB RAM with room for other operations
+
+[ ] Experiment with prompt engineering
+    - Test different prompt templates for summarization
+    - Target: 1-2 sentence summaries like the example output
+    - Example: "A dataset was created and tested for building and testing
+      models' ability to detect differences in similar species. Comparisons
+      of different model results are given."
+    - Test with actual extracted markdown from our test images
+    - Find optimal max input token length (handle long texts)
+
+### Phase 2: Implementation
+
+[ ] Add summary field to ProcessedDocument
+    - Edit: src/conference_reader/extraction/processed_document.py
+    - Add: summary: Optional[str] = None
+    - Update docstring
+    - Update from_path() factory method to accept summary parameter
+
+[ ] Implement TextSummarizer class
+    - File: src/conference_reader/summarization/text_summarizer.py
+    - __init__(): Load SmolLM3 model (cache in instance)
+    - summarize_single(doc: ProcessedDocument) -> ProcessedDocument
+    - summarize_batch(docs: List[ProcessedDocument]) -> List[ProcessedDocument]
+    - Use dataclasses.replace() to return new ProcessedDocument with summary
+    - Handle errors gracefully (return doc with summary=None if fails)
+    - Add truncation logic for long texts (if needed based on experiments)
+
+[ ] Update summarization package exports
+    - Edit: src/conference_reader/summarization/__init__.py
+    - Export TextSummarizer class
+
+[ ] Integrate summarization into main.py
+    - Uncomment TODO Step 4
+    - Import TextSummarizer
+    - Call summarizer.summarize_batch(documents)
+    - Update print_results() to display summaries
+
+[ ] Update output display
+    - Edit main.py print_results()
+    - Show summary after quality metrics
+    - Format: "SUMMARY: [text here]" or similar
+
+### Phase 3: Testing & Validation
+
+[ ] Create unit tests
+    - File: tests/test_text_summarizer.py
+    - Test model loads correctly
+    - Test summarize_single() with sample text
+    - Test summarize_batch() with multiple docs
+    - Test error handling (malformed input)
+
+[ ] Run integration test
+    - Execute: python main.py
+    - Verify all 6 test images get summaries
+    - Check summary quality manually
+    - Verify GPU is being used (check logs/nvidia-smi equivalent)
+
+[ ] Performance benchmarking
+    - Measure total time for 6 images (extraction + summarization)
+    - Check memory usage during summarization
+    - Document findings in doc/ directory
+
+### Phase 4: Documentation
+
+[ ] Create SmolLM3 integration guide
+    - File: doc/SMOLLM3_INTEGRATION.md
+    - Document model selection rationale
+    - Document prompt template used
+    - Document performance characteristics
+    - Include troubleshooting section
+
+[ ] Update claude.md
+    - Mark summarization phase as complete
+    - Document any new architectural decisions
+    - Note any issues encountered
+
+## FUTURE WORK (Not Next Session)
+
+### CSV Output Implementation
+[ ] Design OutputWriter API
+    - Required parameters: format ("csv" or "md"), output_path
+    - write_output(documents: List[ProcessedDocument])
+    - Private _format_results() method
+    - Auto-create output/ directory
+
+[ ] Implement CSV writer
+    - Columns: title, summary, path, filename, quality_score
+    - Handle missing summaries gracefully
+    - Add timestamp to filename
+
+[ ] Add Google Drive link generation (if feasible)
+    - Research Google Drive API
+    - Determine if links can be auto-generated
+    - Alternative: Just provide local paths for now
+
+### Testing & Quality Improvements
+[ ] Write comprehensive test suite
+    - Currently only basic tests exist
+    - Need integration tests for full pipeline
+    - Need edge case tests (empty dirs, corrupted images, etc.)
+
+[ ] Investigate HEIC image support
+    - Test if Docling handles HEIC out of box
+    - If not, research conversion libraries
+    - Document findings
+
+[ ] Docling model optimization
+    - Research different OCR engines available
+    - Test different Docling models
+    - Benchmark accuracy vs speed tradeoffs
+    - Document recommendations
+
+### Scalability & Performance
+[ ] Implement batch processing optimizations
+    - Process multiple images in parallel?
+    - Batch summarization for efficiency
+    - Progress tracking for large directories
+
+[ ] Add quality filtering
+    - Skip/flag images with POOR quality grade
+    - Configurable quality threshold
+    - Option to only process high-quality images
+
+[ ] Add configuration file support
+    - YAML or TOML config for model settings
+    - Configurable prompts, thresholds, output formats
+    - Per-project configuration
+
+## COMPLETED ✓
+
+[✓] Set up project structure
+[✓] Implement ImageLoader class
+[✓] Implement ProcessedDocument dataclass
+[✓] Implement DocumentExtractor with Docling
+[✓] Add quality metrics tracking (grades + scores)
+[✓] Update main.py to display quality metrics
+[✓] Test extraction with real conference poster images
+[✓] Research Docling confidence scores
+[✓] Document Docling metrics in doc/DOCLING_METRICS_GUIDE.md
+[✓] Decide on export format for LLM (markdown)
+[✓] Move documentation to doc/ directory
+
+## NOTES & REMINDERS
+
+- Always activate .venv before running Python: source .venv/bin/activate
+- Test images located at: /data/neurips/poster_test/
+- Documentation goes in: doc/
+- Framework 13 has 48GB RAM - generous for SmolLM3-3B model
+- ROCm 7.1 with PyTorch 2.9.1 in container
+- ProcessedDocument uses immutable pattern (return new objects)
+- Quality grades (EXCELLENT/GOOD/FAIR/POOR) are stable API, scores are unstable
+- Use markdown export from Docling - best for LLMs
+
+## QUESTIONS TO RESOLVE
+
+2. Should we track summarization confidence/quality metrics?
+4. Error handling strategy - fail fast or collect errors and continue?
+5. Should summary length be configurable or fixed?

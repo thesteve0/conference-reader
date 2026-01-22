@@ -7,6 +7,9 @@ dependencies = [
     "docling>=2.67.0",
     "tomli>=2.3.0",
     "tomli-w>=1.2.0",
+    "transformers>=4.57.3",
+    "pillow>=10.0.0",
+    "accelerate>=0.20.0",
 ]
 
 [tool.uv]

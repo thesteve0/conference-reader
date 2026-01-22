@@ -212,6 +212,7 @@ dependencies = [
     { name = "docling" },
     { name = "tomli" },
     { name = "tomli-w" },
+    { name = "transformers" },
 ]
 
 [package.metadata]
@@ -219,6 +220,7 @@ requires-dist = [
     { name = "docling", specifier = ">=2.67.0" },
     { name = "tomli", specifier = ">=2.3.0" },
     { name = "tomli-w", specifier = ">=1.2.0" },
+    { name = "transformers", specifier = ">=4.57.3" },
 ]
 
 [[package]]

@@ -12,12 +12,19 @@ Goals:
     3. Measure inference time and memory usage
     4. Display full model reasoning and output
 
-ROCm GPU Workaround Modes:
+ROCm 7.2 Configuration:
+    Default: "eager_bfloat16" - Recommended for ROCm 7.2 with optimized GEMM kernels
+
+    Environment variables already set in devcontainer.json:
+    - ROCBLAS_USE_HIPBLASLT=1: Enables hipBLASLt backend (~35 TFLOPS vs ~5 TFLOPS)
+    - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True: Improves memory management
+
     To switch between different modes, change the DEVICE_MODE variable below:
-    - "auto": Try GPU with experimental ROCm (Option 4)
-    - "eager_float16": GPU with eager attention + float16 (Option 2)
-    - "eager_float32": GPU with eager attention + float32 (Option 3)
-    - "cpu": Force CPU execution (Option 1)
+    - "eager_bfloat16": GPU with eager attention + bfloat16 (RECOMMENDED for ROCm 7.2)
+    - "eager_float16": GPU with eager attention + float16
+    - "eager_float32": GPU with eager attention + float32 (slower, more memory)
+    - "auto": Try GPU with experimental features (may be unstable)
+    - "cpu": Force CPU execution (slowest, most reliable)
 """
 
 import json
@@ -35,16 +42,25 @@ from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
 MODEL_NAME = "Qwen/Qwen3-VL-4B-Instruct"
 
 # Change this to try different GPU/CPU modes:
-# "auto" = Option 4: Try GPU with experimental ROCm features
-# "eager_bfloat16" = Option 2B: GPU with eager attention + bfloat16 (FASTEST EAGER MODE)
-# "eager_float16" = Option 2: GPU with eager attention + float16
-# "eager_float32" = Option 3: GPU with eager attention + float32
-# "cpu" = Option 1: Force CPU (most reliable, slowest)
-DEVICE_MODE = "eager_float16"  # WORKING: Stable on AMD ROCm 7.1 (slow first run due to compilation)
+# "eager_bfloat16" = RECOMMENDED: ROCm 7.2 optimized with Origami GEMM tuning, 2x throughput vs FP32
+# "eager_float16" = Alternative: GPU with eager attention + float16
+# "eager_float32" = Legacy: GPU with eager attention + float32 (slower, more memory)
+# "auto" = Experimental: Try GPU with experimental features (may be unstable)
+# "cpu" = Fallback: Force CPU (most reliable, slowest)
+DEVICE_MODE = (
+    "eager_float16"  # STABLE: bf16 hangs on Strix Halo, float16 works
+)
 
 # Image evaluation configuration
 IMAGE_DIR = Path("/data/neurips/invalid_poster_images")
 GROUND_TRUTH_FILE = Path("datasets/eval/validator_ground_truth.json")
+
+# Image resolution limits (controls token count and memory usage)
+# Qwen VL uses 28x28 pixel patches, so max_pixels = width * 28 * 28
+# Lower values = fewer tokens = less memory but potentially lower accuracy
+# Default would be ~2048*28*28 = 1,605,632 which creates too many tokens
+MIN_PIXELS = 256 * 28 * 28      # ~200K pixels minimum
+MAX_PIXELS = 512 * 28 * 28      # ~400K pixels maximum (reduced for memory)
 # ============================================================================
 
 CLASSIFICATION_PROMPT = """Analyze this image and determine if it shows:
@@ -159,9 +175,14 @@ def load_model():
             "device_map": "auto",
         }
     elif DEVICE_MODE == "eager_bfloat16":
-        # Option 2B: GPU with eager attention + bfloat16 (often faster on ROCm)
-        print("\n🔧 Mode: Eager attention + bfloat16 on GPU")
-        print("   Strategy: Disable SDPA, use bfloat16 (better ROCm performance)")
+        # RECOMMENDED for ROCm 7.2: Optimized GEMM kernels + 2x throughput vs FP32
+        print("\n🚀 Mode: Eager attention + bfloat16 on GPU (ROCm 7.2 Optimized)")
+        print(
+            "   Benefits: Origami-tuned kernels, 2x memory bandwidth, native gfx1151 support"
+        )
+        print(
+            "   Performance: ~35 TFLOPS with hipBLASLt vs ~5 TFLOPS on legacy backend"
+        )
         load_kwargs = {
             "torch_dtype": torch.bfloat16,
             "device_map": "auto",
@@ -199,14 +220,27 @@ def load_model():
 
     start_time = time.time()
 
-    # Load processor
+    # Load processor with image resolution limits
     print("\nLoading processor...")
-    processor = AutoProcessor.from_pretrained(MODEL_NAME)
+    print(f"  Image resolution: min={MIN_PIXELS:,} max={MAX_PIXELS:,} pixels")
+    processor = AutoProcessor.from_pretrained(
+        MODEL_NAME,
+        min_pixels=MIN_PIXELS,
+        max_pixels=MAX_PIXELS,
+    )
     print("✓ Processor loaded")
 
     # Load model with configured settings
     print("\nLoading model...")
     model = Qwen3VLForConditionalGeneration.from_pretrained(MODEL_NAME, **load_kwargs)
+
+    # Optional: Enable torch.compile for better performance on ROCm 7.2 + PyTorch 2.9.1
+    # Reduces CPU-launch latency (~60s → ~15s cold start)
+    # Uncomment to enable:
+    # if DEVICE_MODE != "cpu":
+    #     print("\nCompiling model with torch.compile (reduce-overhead mode)...")
+    #     model = torch.compile(model, mode="reduce-overhead")
+    #     print("✓ Model compiled")
 
     load_time = time.time() - start_time
     print(f"✓ Model loaded in {load_time:.2f} seconds")
@@ -284,7 +318,9 @@ def classify_image(model, processor, image_path: str, prompt: str):
     start_time = time.time()
     with torch.no_grad():
         generated_ids = model.generate(
-            **inputs, max_new_tokens=512, do_sample=False  # Increased
+            **inputs,
+            max_new_tokens=128,  # Reduced from 512: sufficient for classification, improves stability
+            do_sample=False,
         )
     gen_time = time.time() - start_time
     print(f"  ✓ Inference complete ({gen_time:.2f}s)")

@@ -102,8 +102,6 @@ def print_results(documents: list[ProcessedDocument]) -> None:
     for doc in successful:
         print(f"\n{'─' * 80}")
         print(f"FILE: {doc.filename}")
-        if doc.title:
-            print(f"TITLE: {doc.title}")
         if doc.summary:
             print(f"SUMMARY: {doc.summary}")
         print(f"{'─' * 80}")
@@ -138,12 +136,17 @@ def main():
         # Step 2: Classify images (filter posters vs QR codes)
         print("Classifying images (poster vs QR code)...")
         classifier = ImageClassifier()
-        poster_paths = classifier.filter_posters(
+        poster_paths, classification_data = classifier.filter_posters(
             [Path(p) for p in image_paths],
             verbose=args.verbose,
         )
         classifier.unload()  # Free GPU memory before loading next model
         print(f"Found {len(poster_paths)} poster(s)\n")
+
+        # Export classification results
+        exporter = CSVExporter()
+        classification_csv = exporter.export_classification(classification_data)
+        print(f"Classification results exported to: {classification_csv}")
 
         if not poster_paths:
             print("No posters found after classification. Exiting.")
@@ -170,7 +173,6 @@ def main():
 
         # Step 5: Export to CSV
         print("Exporting to CSV...")
-        exporter = CSVExporter()
         output_path = exporter.export(documents, args.output)
         print(f"Results exported to: {output_path}\n")
 

@@ -140,12 +140,19 @@ class TestImageClassifierWithMock:
             Path("/test/img2.jpg"),
             Path("/test/img3.jpg"),
         ]
-        poster_paths = classifier.filter_posters(paths)
+        poster_paths, classification_data = classifier.filter_posters(paths)
 
+        # Check poster paths
         assert len(poster_paths) == 2
         assert Path("/test/img1.jpg") in poster_paths
         assert Path("/test/img3.jpg") in poster_paths
         assert Path("/test/img2.jpg") not in poster_paths
+
+        # Check classification data for CSV export
+        assert len(classification_data) == 3
+        assert classification_data[0] == {"filename": "img1.jpg", "classification": "poster"}
+        assert classification_data[1] == {"filename": "img2.jpg", "classification": "qr"}
+        assert classification_data[2] == {"filename": "img3.jpg", "classification": "poster"}
 
 
 class TestClassificationResult:

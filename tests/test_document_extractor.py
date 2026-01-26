@@ -7,52 +7,6 @@ import pytest
 from conference_reader.extraction import DocumentExtractor, ProcessedDocument
 
 
-class TestDocumentExtractorTitleExtraction:
-    """Tests for title extraction logic (no external deps)."""
-
-    def test_extract_title_from_heading(self):
-        """Test extracting title from markdown heading."""
-        extractor = DocumentExtractor.__new__(DocumentExtractor)
-
-        title = extractor._extract_title("# My Poster Title\n\nContent here")
-        assert title == "My Poster Title"
-
-    def test_extract_title_from_h2(self):
-        """Test extracting title from h2 heading."""
-        extractor = DocumentExtractor.__new__(DocumentExtractor)
-
-        title = extractor._extract_title("## Secondary Title\n\nContent")
-        assert title == "Secondary Title"
-
-    def test_extract_title_no_heading(self):
-        """Test extracting title when no heading symbol."""
-        extractor = DocumentExtractor.__new__(DocumentExtractor)
-
-        title = extractor._extract_title("Plain text title\n\nContent")
-        assert title == "Plain text title"
-
-    def test_extract_title_empty_text(self):
-        """Test extracting title from empty text."""
-        extractor = DocumentExtractor.__new__(DocumentExtractor)
-
-        title = extractor._extract_title("")
-        assert title is None
-
-    def test_extract_title_only_whitespace(self):
-        """Test extracting title from whitespace-only text."""
-        extractor = DocumentExtractor.__new__(DocumentExtractor)
-
-        title = extractor._extract_title("   \n\n   ")
-        assert title is None
-
-    def test_extract_title_skips_empty_lines(self):
-        """Test that title extraction skips leading empty lines."""
-        extractor = DocumentExtractor.__new__(DocumentExtractor)
-
-        title = extractor._extract_title("\n\n# Actual Title\n\nContent")
-        assert title == "Actual Title"
-
-
 class TestDocumentExtractorWithMock:
     """Tests for DocumentExtractor using mocked Docling."""
 
@@ -119,7 +73,6 @@ class TestDocumentExtractorWithMock:
 
         assert isinstance(doc, ProcessedDocument)
         assert doc.success is True
-        assert doc.title == "Test Title"
         assert doc.extracted_text == "# Test Title\n\nContent"
         assert doc.quality_grade == "GOOD"
         assert doc.quality_score == 0.85

@@ -48,25 +48,10 @@ class TextSummarizer:
         )
         self.model.eval()
 
-    def _extract_title(self, doc: ProcessedDocument) -> str:
-        """Extract title from the first line of markdown text.
-
-        Args:
-            doc: ProcessedDocument with extracted_text
-
-        Returns:
-            Title string with # symbols stripped, or "Unknown" if not found
-        """
-        lines = doc.extracted_text.split("\n")
-        if lines:
-            return lines[0].strip("#").strip()
-        return "Unknown"
-
-    def _create_prompt(self, title: str, text: str) -> str:
+    def _create_prompt(self, text: str) -> str:
         """Create the example-driven prompt for summarization.
 
         Args:
-            title: The extracted title (from first markdown line)
             text: The full extracted text (will be truncated if too long)
 
         Returns:
@@ -80,12 +65,10 @@ class TextSummarizer:
         prompt = f"""You are helping someone quickly scan conference posters. Summarize the poster below in 1-2 sentences, focusing on the main research contribution and results.
 
 Example:
-Title: "CrypticBio: A large multimodal dataset"
+Content: "CrypticBio: A large multimodal dataset for training and testing models..."
 Summary: A dataset was created and tested for building and testing models' ability to detect differences in similar species. Comparisons of different model results are given.
 
 DO NOT repeat this example as your response. You MUST generate a new summary based on the provided poster text which follows `Content:`.
-
-Title: {title}
 
 Content:
 {truncated_text}
@@ -138,9 +121,8 @@ Summary:"""
             return doc
 
         try:
-            # Extract title and create prompt
-            title = self._extract_title(doc)
-            prompt = self._create_prompt(title, doc.extracted_text)
+            # Create prompt from extracted text
+            prompt = self._create_prompt(doc.extracted_text)
 
             # Generate summary
             summary = self._generate_summary(prompt)

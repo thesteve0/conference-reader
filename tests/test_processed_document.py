@@ -13,13 +13,11 @@ class TestProcessedDocument:
         doc = ProcessedDocument.from_path(
             file_path="/data/test/image.jpg",
             extracted_text="# Test Title\n\nContent",
-            title="Test Title",
         )
 
         assert doc.filename == "image.jpg"
         assert doc.file_path.endswith("image.jpg")
         assert doc.extracted_text == "# Test Title\n\nContent"
-        assert doc.title == "Test Title"
         assert doc.success is True
         assert doc.error_message is None
 
@@ -63,7 +61,6 @@ class TestProcessedDocument:
         assert doc.error_message is None
         assert doc.quality_grade is None
         assert doc.quality_score is None
-        assert doc.title is None
         assert doc.summary is None
 
     def test_extraction_time_is_set(self):

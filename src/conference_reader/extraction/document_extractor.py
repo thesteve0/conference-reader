@@ -140,26 +140,6 @@ class DocumentExtractor:
         # Create fresh converter
         self.converter = self._create_converter()
 
-    def _extract_title(self, extracted_text: str) -> Optional[str]:
-        """Extract title from the first non-empty line of markdown.
-
-        Args:
-            extracted_text: Markdown-formatted text from Docling
-
-        Returns:
-            Title with markdown symbols stripped, or None if not found
-        """
-        if not extracted_text:
-            return None
-
-        for line in extracted_text.split("\n"):
-            stripped = line.strip()
-            if stripped:
-                # Remove markdown heading symbols and return
-                return stripped.lstrip("#").strip()
-
-        return None
-
     def extract_single(self, image_path: str) -> ProcessedDocument:
         """Extract text from a single image file.
 
@@ -167,7 +147,7 @@ class DocumentExtractor:
             image_path: Path to the image file to process
 
         Returns:
-            ProcessedDocument instance with extracted text, title, and timing
+            ProcessedDocument instance with extracted text and timing
         """
         start_time = time.time()
 
@@ -178,9 +158,6 @@ class DocumentExtractor:
 
             # Extract the text as markdown
             extracted_text = result.document.export_to_markdown()
-
-            # Extract title from the markdown
-            title = self._extract_title(extracted_text)
 
             # Extract quality metrics from Docling's confidence scores
             confidence = result.confidence
@@ -195,7 +172,6 @@ class DocumentExtractor:
                 low_score=confidence.low_score,
                 ocr_score=confidence.ocr_score,
                 layout_score=confidence.layout_score,
-                title=title,
                 processing_time=processing_time,
             )
 

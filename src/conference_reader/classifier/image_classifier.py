@@ -167,17 +167,39 @@ Your one-word answer:"""
 
         return results
 
+    def _results_to_export_data(
+        self, results: list[ClassificationResult]
+    ) -> list[dict[str, str]]:
+        """Convert ClassificationResults to list of dicts for CSV export.
+
+        Args:
+            results: List of ClassificationResult from classify_batch()
+
+        Returns:
+            List of dicts with 'filename' and 'classification' keys
+        """
+        return [
+            {
+                "filename": result.image_path.name,
+                "classification": result.image_type.value,
+            }
+            for result in results
+        ]
+
     def filter_posters(
         self, image_paths: list[Path], verbose: bool = False
-    ) -> list[Path]:
-        """Return only paths classified as posters.
+    ) -> tuple[list[Path], list[dict[str, str]]]:
+        """Classify images and return poster paths with classification data.
 
         Args:
             image_paths: List of paths to image files
             verbose: If True, print progress during classification
 
         Returns:
-            List of paths that were classified as posters
+            Tuple of (poster_paths, classification_data):
+            - poster_paths: List of paths classified as posters
+            - classification_data: List of dicts with 'filename' and
+              'classification' for all images (for CSV export)
         """
         results = self.classify_batch(image_paths, verbose=verbose)
 
@@ -187,10 +209,12 @@ Your one-word answer:"""
             if result.image_type == ImageType.POSTER
         ]
 
+        classification_data = self._results_to_export_data(results)
+
         if verbose:
             print(f"\nFiltered: {len(poster_paths)}/{len(image_paths)} are posters")
 
-        return poster_paths
+        return poster_paths, classification_data
 
     def unload(self) -> None:
         """Free GPU memory by unloading the model."""

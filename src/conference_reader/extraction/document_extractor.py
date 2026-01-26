@@ -6,9 +6,15 @@ from pathlib import Path
 from typing import List, Optional
 
 from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.datamodel.pipeline_options import (
+    AcceleratorDevice,
+    AcceleratorOptions,
+    PdfPipelineOptions,
+    TesseractCliOcrOptions,
+)
 from docling.document_converter import DocumentConverter, PdfFormatOption
 
+from ..config.rocm_config import apply_rocm_stability_settings
 from .processed_document import ProcessedDocument
 
 # Threshold for considering an extraction "slow" (seconds)
@@ -35,6 +41,7 @@ class DocumentExtractor:
         self,
         images_scale: float = 0.75,
         document_timeout: Optional[float] = 120.0,
+        use_gpu: bool = True,
     ):
         """Initialize DocumentExtractor with configuration options.
 
@@ -43,10 +50,36 @@ class DocumentExtractor:
                 0.5 = half resolution, 1.0 = full resolution, 2.0 = double.
             document_timeout: Maximum seconds per document (default: 120).
                 None = no timeout.
+            use_gpu: Whether to use GPU acceleration for layout detection
+                (default: True). OCR uses Tesseract which is CPU-only.
         """
+        # Apply ROCm stability settings for AMD GPUs before any GPU operations
+        if use_gpu:
+            apply_rocm_stability_settings()
+
         self.images_scale = images_scale
         self.document_timeout = document_timeout
+        self.use_gpu = use_gpu
+        self.accelerator_options = self._create_accelerator_options()
         self.converter = self._create_converter()
+
+    def _create_accelerator_options(self) -> AcceleratorOptions:
+        """Create accelerator options for GPU/CPU device selection.
+
+        Returns:
+            Configured AcceleratorOptions instance
+        """
+        if self.use_gpu:
+            # AUTO will detect available GPU (CUDA/ROCm via HIP)
+            return AcceleratorOptions(
+                device=AcceleratorDevice.AUTO,
+                num_threads=4,
+            )
+        else:
+            return AcceleratorOptions(
+                device=AcceleratorDevice.CPU,
+                num_threads=4,
+            )
 
     def _create_converter(self) -> DocumentConverter:
         """Create a fresh DocumentConverter with current settings.
@@ -54,9 +87,15 @@ class DocumentExtractor:
         Returns:
             Configured DocumentConverter instance
         """
+        # Use Tesseract CLI for OCR (CPU-only, but more reliable than RapidOCR)
+        ocr_options = TesseractCliOcrOptions(lang=["eng"])
+
         pipeline_options = PdfPipelineOptions(
             images_scale=self.images_scale,
             document_timeout=self.document_timeout,
+            do_ocr=True,
+            ocr_options=ocr_options,
+            accelerator_options=self.accelerator_options,
         )
 
         return DocumentConverter(

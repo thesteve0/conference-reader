@@ -1,47 +1,40 @@
 """
 Conference Reader - Main Application Entry Point
 
-This is the main driver program for the conference-reader project, a ROCm-based
-data science application built from the datascience-template-ROCm template.
-
-This application will provide functionality to:
-1. Read a directory of images of conference posters (and maybe slides)
-2. Extract text and structure from these images
-3. Send the text to a language model for summarization
-4. Output a list of summaries along with links to the original images
-
-This should enable Red Hat employees to quickly see which posters or slides they want to open and read.
+This application processes conference poster images through a pipeline:
+1. Discover images in a directory
+2. Classify images (filter posters vs QR codes) using VLM
+3. Extract text from poster images using Docling
+4. Summarize extracted text using SmolLM3
+5. Export results to CSV
 
 Usage:
-    python main.py                                    # Use default directory
-    python main.py --directory /path/to/images        # Custom directory
-    python main.py -d /path/to/images                 # Short form
+    python main.py
+    python main.py --directory /path/to/images
+    python main.py -d /path/to/images -o results.csv
 
 Environment:
-    - Designed to run inside the devcontainer with AMD GPU (ROCm) access
-    - Requires .venv to be activated (should happen automatically in devcontainer)
-    - GPU verification: Use 'amd-smi' or 'rocm-smi' to check GPU availability
-
-Dependencies:
-    - See pyproject.toml for package requirements
-    - ROCm-provided packages (torch, numpy, etc.) come from container base image
-    - Additional packages installed via uv into .venv
+    - Runs inside devcontainer with AMD GPU (ROCm) access
+    - Requires .venv to be activated
 """
 
 import argparse
 import sys
+from pathlib import Path
 
-# Note: The package name uses hyphens in directory but underscores in Python imports
+from conference_reader.config import apply_rocm_stability_settings
 from conference_reader.image_loader import ImageLoader
+from conference_reader.classifier import ImageClassifier
 from conference_reader.extraction import (
     DocumentExtractor,
     ProcessedDocument,
-    ValidImageConfig,
 )
 from conference_reader.summarization import TextSummarizer
+from conference_reader.output import CSVExporter
 
 
-DEFAULT_IMAGE_DIRECTORY = "/data/neurips/invalid_poster_images"
+DEFAULT_IMAGE_DIRECTORY = "/data/neurips/posters"
+DEFAULT_OUTPUT_FILE = "posters.csv"
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -51,7 +44,7 @@ def parse_arguments() -> argparse.Namespace:
         Parsed arguments namespace
     """
     parser = argparse.ArgumentParser(
-        description="Extract text from conference poster images",
+        description="Process conference poster images into a summarized CSV",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
@@ -59,25 +52,32 @@ def parse_arguments() -> argparse.Namespace:
         "-d",
         type=str,
         default=DEFAULT_IMAGE_DIRECTORY,
-        help=f"Directory containing poster images (default: {DEFAULT_IMAGE_DIRECTORY})",
+        help="Directory containing poster images",
     )
     parser.add_argument(
-        "--min-text-length",
-        type=int,
-        default=800,
-        help="Minimum text length for valid poster (default: 800)",
+        "--output",
+        "-o",
+        type=str,
+        default=DEFAULT_OUTPUT_FILE,
+        help="Output CSV filename",
     )
     parser.add_argument(
-        "--require-heading",
+        "--verbose",
+        "-v",
         action="store_true",
-        default=True,
-        help="Require markdown heading for valid poster (default: True)",
+        help="Print detailed progress information",
     )
     parser.add_argument(
-        "--min-heading-count",
-        type=int,
-        default=3,
-        help="Minimum number of headings for valid poster (default: 3)",
+        "--images-scale",
+        type=float,
+        default=0.75,
+        help="Scale factor for image resolution (default: 0.75)",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=float,
+        default=120.0,
+        help="Maximum seconds per image (default: 120)",
     )
     return parser.parse_args()
 
@@ -89,48 +89,29 @@ def print_results(documents: list[ProcessedDocument]) -> None:
         documents: List of ProcessedDocument instances to display
     """
     print("\n" + "=" * 80)
-    print("EXTRACTION RESULTS")
+    print("PROCESSING RESULTS")
     print("=" * 80 + "\n")
 
     successful = [doc for doc in documents if doc.success]
     failed = [doc for doc in documents if not doc.success]
 
-    print(f"Total images processed: {len(documents)}")
-    print(f"Successful extractions: {len(successful)}")
-    print(f"Failed extractions: {len(failed)}\n")
+    print(f"Total documents: {len(documents)}")
+    print(f"Successful: {len(successful)}")
+    print(f"Failed: {len(failed)}\n")
 
     for doc in successful:
-        print(f"\n{'─'*80}")
+        print(f"\n{'─' * 80}")
         print(f"FILE: {doc.filename}")
-        print(f"PATH: {doc.file_path}")
-        print(f"TIME: {doc.extraction_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
-        # Display quality metrics if available
-        if doc.quality_grade:
-            quality_display = f"QUALITY: {doc.quality_grade}"
-            if doc.quality_score:
-                quality_display += f" ({doc.quality_score:.3f})"
-            print(quality_display)
-
-        # Display summary if available
+        if doc.title:
+            print(f"TITLE: {doc.title}")
         if doc.summary:
             print(f"SUMMARY: {doc.summary}")
-
-        print(f"{'─'*80}")
-
-        # Show first 500 characters of extracted text
-        preview_text = doc.extracted_text[:500]
-        print(preview_text)
-
-        if len(doc.extracted_text) > 500:
-            remaining = len(doc.extracted_text) - 500
-            print(f"\n... ({remaining} more characters)")
-        print()
+        print(f"{'─' * 80}")
 
     if failed:
-        print(f"\n{'─'*80}")
-        print("FAILED EXTRACTIONS:")
-        print(f"{'─'*80}")
+        print(f"\n{'─' * 80}")
+        print("FAILED:")
+        print(f"{'─' * 80}")
         for doc in failed:
             print(f"  - {doc.filename}: {doc.error_message}")
         print()
@@ -140,35 +121,61 @@ def main():
     """Main application entry point."""
     args = parse_arguments()
 
+    # Apply ROCm stability settings before any GPU operations
+    apply_rocm_stability_settings()
+
     try:
-        # Step 1: Discover images in the directory
+        # Step 1: Discover images
         print(f"Scanning directory: {args.directory}")
         loader = ImageLoader(directory=args.directory)
         image_paths = loader.get_image_paths()
         print(f"Found {len(image_paths)} image(s)\n")
 
-        # Step 2: Extract text from images using Docling with validation
-        print("Extracting text from images...")
-        valid_image_config = ValidImageConfig(
-            min_text_length=args.min_text_length,
-            require_heading=args.require_heading,
-            min_heading_count=args.min_heading_count,
-        )
-        extractor = DocumentExtractor(valid_image_config=valid_image_config)
-        documents = extractor.extract_batch(image_paths)
+        if not image_paths:
+            print("No images found. Exiting.")
+            return
 
-        # Step 3: Summarize extracted text using SmolLM3
-        print("\nGenerating summaries...")
+        # Step 2: Classify images (filter posters vs QR codes)
+        print("Classifying images (poster vs QR code)...")
+        classifier = ImageClassifier()
+        poster_paths = classifier.filter_posters(
+            [Path(p) for p in image_paths],
+            verbose=args.verbose,
+        )
+        classifier.unload()  # Free GPU memory before loading next model
+        print(f"Found {len(poster_paths)} poster(s)\n")
+
+        if not poster_paths:
+            print("No posters found after classification. Exiting.")
+            return
+
+        # Step 3: Extract text from poster images
+        print("Extracting text from posters...")
+        extractor = DocumentExtractor(
+            images_scale=args.images_scale,
+            document_timeout=args.timeout,
+        )
+        documents = extractor.extract_batch(
+            [str(p) for p in poster_paths],
+            verbose=args.verbose,
+        )
+        successful_docs = [doc for doc in documents if doc.success]
+        print(f"Extracted text from {len(successful_docs)} poster(s)\n")
+
+        # Step 4: Summarize extracted text
+        print("Generating summaries...")
         summarizer = TextSummarizer()
         documents = summarizer.summarize_batch(documents)
+        print("Summaries generated\n")
 
-        # Step 4: Display results
+        # Step 5: Export to CSV
+        print("Exporting to CSV...")
+        exporter = CSVExporter()
+        output_path = exporter.export(documents, args.output)
+        print(f"Results exported to: {output_path}\n")
+
+        # Display results
         print_results(documents)
-
-        # TODO: Step 5 - Write output to file (not implemented yet)
-        # from src.conference_reader.output import OutputWriter
-        # writer = OutputWriter(format="md")
-        # writer.write_output(documents)
 
     except FileNotFoundError as e:
         print(f"Error: {e}", file=sys.stderr)

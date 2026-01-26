@@ -1,11 +1,18 @@
 """DocumentExtractor class for extracting text from images using Docling."""
 
-from typing import List
+import gc
+import time
+from pathlib import Path
+from typing import List, Optional
 
-from docling.document_converter import DocumentConverter
+from docling.datamodel.base_models import InputFormat
+from docling.datamodel.pipeline_options import PdfPipelineOptions
+from docling.document_converter import DocumentConverter, PdfFormatOption
 
 from .processed_document import ProcessedDocument
-from .valid_image_config import ValidImageConfig
+
+# Threshold for considering an extraction "slow" (seconds)
+SLOW_EXTRACTION_THRESHOLD = 60.0
 
 
 class DocumentExtractor:
@@ -14,18 +21,105 @@ class DocumentExtractor:
     This class wraps Docling's DocumentConverter to provide a clean interface
     for extracting text from conference poster images.
 
+    Note:
+        Image filtering (poster vs QR code) should be done BEFORE calling
+        this extractor using the ImageClassifier class.
+
     Attributes:
         converter: Docling's DocumentConverter instance
+        images_scale: Scale factor for image resolution
+        document_timeout: Maximum seconds per document
     """
 
-    def __init__(self, valid_image_config: ValidImageConfig):
-        """Initialize DocumentExtractor with validation config.
+    def __init__(
+        self,
+        images_scale: float = 0.75,
+        document_timeout: Optional[float] = 120.0,
+    ):
+        """Initialize DocumentExtractor with configuration options.
 
         Args:
-            valid_image_config: Configuration for validation thresholds.
+            images_scale: Scale factor for image resolution (default: 0.75).
+                0.5 = half resolution, 1.0 = full resolution, 2.0 = double.
+            document_timeout: Maximum seconds per document (default: 120).
+                None = no timeout.
         """
-        self.converter = DocumentConverter()
-        self.valid_image_config = valid_image_config
+        self.images_scale = images_scale
+        self.document_timeout = document_timeout
+        self.converter = self._create_converter()
+
+    def _create_converter(self) -> DocumentConverter:
+        """Create a fresh DocumentConverter with current settings.
+
+        Returns:
+            Configured DocumentConverter instance
+        """
+        pipeline_options = PdfPipelineOptions(
+            images_scale=self.images_scale,
+            document_timeout=self.document_timeout,
+        )
+
+        return DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_options=pipeline_options
+                ),
+                InputFormat.IMAGE: PdfFormatOption(
+                    pipeline_options=pipeline_options
+                ),
+            }
+        )
+
+    def _reset_converter(self, verbose: bool = False) -> None:
+        """Reset the converter to recover from stuck threads.
+
+        This cleans up GPU memory and creates a fresh converter instance.
+        Call this after timeouts or slow extractions to prevent resource leaks.
+
+        Args:
+            verbose: If True, print a message about the reset
+        """
+        if verbose:
+            print("  -> Resetting converter to recover resources...")
+
+        # Delete old converter
+        del self.converter
+
+        # Force garbage collection to release GPU memory
+        gc.collect()
+
+        # Try to clear GPU cache if torch is available
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.synchronize()
+        except (ImportError, RuntimeError):
+            pass  # torch not available or no GPU
+
+        # Create fresh converter
+        self.converter = self._create_converter()
+
+    def _extract_title(self, extracted_text: str) -> Optional[str]:
+        """Extract title from the first non-empty line of markdown.
+
+        Args:
+            extracted_text: Markdown-formatted text from Docling
+
+        Returns:
+            Title with markdown symbols stripped, or None if not found
+        """
+        if not extracted_text:
+            return None
+
+        for line in extracted_text.split("\n"):
+            stripped = line.strip()
+            if stripped:
+                # Remove markdown heading symbols and return
+                return stripped.lstrip("#").strip()
+
+        return None
 
     def extract_single(self, image_path: str) -> ProcessedDocument:
         """Extract text from a single image file.
@@ -34,36 +128,23 @@ class DocumentExtractor:
             image_path: Path to the image file to process
 
         Returns:
-            ProcessedDocument instance with extracted text
+            ProcessedDocument instance with extracted text, title, and timing
         """
+        start_time = time.time()
+
         try:
             # Convert the image using Docling
             result = self.converter.convert(image_path)
+            processing_time = time.time() - start_time
 
             # Extract the text as markdown
             extracted_text = result.document.export_to_markdown()
 
+            # Extract title from the markdown
+            title = self._extract_title(extracted_text)
+
             # Extract quality metrics from Docling's confidence scores
             confidence = result.confidence
-
-            # Extract document structure metadata
-            children_count = (
-                len(result.document.body.children)
-                if hasattr(result.document, "body")
-                and hasattr(result.document.body, "children")
-                else 0
-            )
-
-            # Validate poster quality
-            is_valid, error_msg = self._validate_poster(
-                extracted_text, children_count
-            )
-
-            if not is_valid:
-                # Return as extraction failure with validation error message
-                return ProcessedDocument.from_error(
-                    file_path=image_path, error_message=error_msg
-                )
 
             return ProcessedDocument.from_path(
                 file_path=image_path,
@@ -75,96 +156,74 @@ class DocumentExtractor:
                 low_score=confidence.low_score,
                 ocr_score=confidence.ocr_score,
                 layout_score=confidence.layout_score,
+                title=title,
+                processing_time=processing_time,
             )
 
         except Exception as e:
-            # Return error document if extraction fails
+            processing_time = time.time() - start_time
+            error_msg = str(e)
+
+            # Make timeout errors more readable
+            if "timeout" in error_msg.lower():
+                error_msg = f"Timeout after {processing_time:.1f}s"
+
             return ProcessedDocument.from_error(
-                file_path=image_path, error_message=str(e)
+                file_path=image_path,
+                error_message=error_msg,
+                processing_time=processing_time,
             )
 
-    def _validate_poster(
-        self, extracted_text: str, children_count: int
-    ) -> tuple[bool, str]:
-        """Validate extracted content represents a complete poster.
-
-        Checks text-based and structural heuristics to determine if
-        extracted content is valid or should be filtered (QR codes,
-        partial crops, code snippets).
-
-        Args:
-            extracted_text: Extracted markdown text from Docling
-            children_count: Number of document structure children elements
-
-        Returns:
-            (is_valid, error_message) tuple. Empty string if valid.
-
-        Validation Logic:
-            Image fails ONLY if ALL checks fail (AND logic).
-            Permissive approach reduces false negatives.
-        """
-        config = self.valid_image_config
-        failures = []
-        total_checks = 0
-
-        # Check text length
-        total_checks += 1
-        text_len = len(extracted_text.strip())
-        if text_len < config.min_text_length:
-            failures.append(
-                f"text too short ({text_len} chars < "
-                f"{config.min_text_length})"
-            )
-
-        # Count markdown headings in the entire document
-        heading_count = sum(
-            1
-            for line in extracted_text.split("\n")
-            if line.strip().startswith("#")
-        )
-
-        # Check for markdown heading at the beginning (title check)
-        if config.require_heading:
-            total_checks += 1
-            preview = extracted_text[:500]
-            has_heading = any(
-                line.strip().startswith("#")
-                for line in preview.split("\n")
-            )
-            if not has_heading:
-                failures.append(
-                    "no markdown heading found (expected title)"
-                )
-
-        # Check total heading count
-        total_checks += 1
-        if heading_count < config.min_heading_count:
-            failures.append(
-                f"too few headings ({heading_count} < "
-                f"{config.min_heading_count})"
-            )
-
-        # Check document structure complexity
-        total_checks += 1
-        if children_count < config.min_children_count:
-            failures.append(
-                f"too few children ({children_count} < "
-                f"{config.min_children_count})"
-            )
-
-        # Only mark as invalid if ALL checks failed
-        if len(failures) == total_checks:
-            return False, f"Invalid poster: {'; '.join(failures)}"
-
-        return True, ""
-
-    def extract_batch(self, image_paths: List[str]) -> List[ProcessedDocument]:
+    def extract_batch(
+        self,
+        image_paths: List[str],
+        verbose: bool = False,
+    ) -> List[ProcessedDocument]:
         """Extract text from multiple image files.
+
+        After slow extractions (>60s) or failures, the converter is reset
+        to recover GPU resources and prevent stuck threads from accumulating.
 
         Args:
             image_paths: List of paths to image files to process
+            verbose: If True, print progress for each image
 
         Returns:
             List of ProcessedDocument instances, one per input image
         """
-        return [self.extract_single(path) for path in image_paths]
+        results = []
+        total = len(image_paths)
+
+        for i, path in enumerate(image_paths, start=1):
+            filename = Path(path).name
+
+            if verbose:
+                print(f"Processing [{i}/{total}]: {filename}")
+
+            doc = self.extract_single(path)
+            results.append(doc)
+
+            if verbose:
+                time_str = (
+                    f"{doc.processing_time:.2f}s"
+                    if doc.processing_time
+                    else "N/A"
+                )
+                if doc.success:
+                    print(f"  -> Success ({time_str})")
+                else:
+                    print(f"  -> Failed: {doc.error_message} ({time_str})")
+
+            # Reset converter after slow extractions or failures to prevent
+            # stuck threads from accumulating and exhausting GPU resources
+            needs_reset = (
+                not doc.success
+                or (
+                    doc.processing_time is not None
+                    and doc.processing_time > SLOW_EXTRACTION_THRESHOLD
+                )
+            )
+            if needs_reset:
+                self._reset_converter(verbose=verbose)
+
+        return results

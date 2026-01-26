@@ -44,8 +44,14 @@ class ProcessedDocument:
     ocr_score: Optional[float] = None  # OCR quality (0.0-1.0)
     layout_score: Optional[float] = None  # Layout detection quality (0.0-1.0)
 
+    # Title extracted from the first line of markdown
+    title: Optional[str] = None  # Poster title (from first heading)
+
     # Summary from SmolLM3
     summary: Optional[str] = None  # 1-2 sentence summary of the content
+
+    # Processing timing
+    processing_time: Optional[float] = None  # Seconds to process this document
 
     @classmethod
     def from_path(
@@ -60,6 +66,8 @@ class ProcessedDocument:
         low_score: Optional[float] = None,
         ocr_score: Optional[float] = None,
         layout_score: Optional[float] = None,
+        title: Optional[str] = None,
+        processing_time: Optional[float] = None,
     ) -> "ProcessedDocument":
         """Factory method to create ProcessedDocument from file path.
 
@@ -74,6 +82,8 @@ class ProcessedDocument:
             low_score: Conservative quality score (default: None)
             ocr_score: OCR quality score 0.0-1.0 (default: None)
             layout_score: Layout detection quality score 0.0-1.0 (default: None)
+            title: Poster title extracted from markdown (default: None)
+            processing_time: Seconds to process this document (default: None)
 
         Returns:
             ProcessedDocument instance
@@ -91,15 +101,23 @@ class ProcessedDocument:
             low_score=low_score,
             ocr_score=ocr_score,
             layout_score=layout_score,
+            title=title,
+            processing_time=processing_time,
         )
 
     @classmethod
-    def from_error(cls, file_path: str, error_message: str) -> "ProcessedDocument":
+    def from_error(
+        cls,
+        file_path: str,
+        error_message: str,
+        processing_time: Optional[float] = None,
+    ) -> "ProcessedDocument":
         """Factory method to create ProcessedDocument for failed extraction.
 
         Args:
             file_path: Path to the source image file that failed
             error_message: Description of the error that occurred
+            processing_time: Seconds spent before failure (default: None)
 
         Returns:
             ProcessedDocument instance with success=False
@@ -109,4 +127,5 @@ class ProcessedDocument:
             extracted_text="",
             success=False,
             error_message=error_message,
+            processing_time=processing_time,
         )

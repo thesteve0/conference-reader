@@ -151,9 +151,12 @@ According to Docling logs, supported engines include:
 
 **Key codebase locations:**
 - `src/conference_reader/extraction/document_extractor.py` - DocumentExtractor class
-- `src/conference_reader/extraction/valid_image_config.py` - Validation thresholds
-- `scripts/experiment_validator.py` - Testing script with ground truth
+- `src/conference_reader/classifier/image_classifier.py` - VLM-based image classification
 - `datasets/eval/validator_ground_truth.json` - Ground truth labels (11 images)
+
+**Note:** Heuristic validation (valid_image_config.py) has been replaced with
+VLM-based classification using Qwen3-VL-4B. The ImageClassifier now handles
+poster vs QR code filtering before text extraction.
 
 **Test data:**
 - Directory: `/data/neurips/invalid_poster_images/`
@@ -162,15 +165,15 @@ According to Docling logs, supported engines include:
 
 ## Additional Context
 
-**Current validation logic:**
-- AND logic: Image is invalid ONLY if it fails ALL checks
-- Checks: text_length (800), require_heading, heading_count (3), children_count (50)
-- This makes thresholds critical - need good extraction to pass ANY check
+**Current classification approach:**
+- VLM-based classification using Qwen3-VL-4B
+- ImageClassifier filters posters vs QR codes before text extraction
+- Heuristic validation has been removed in favor of VLM classification
 
-**Why this matters:**
-- Better OCR → more text extracted → easier to pass text_length threshold
-- Better layout detection → more headings/children → easier to pass structure thresholds
-- Overall: Better extraction fundamentally improves validation accuracy
+**Why OCR quality still matters:**
+- Better OCR → more text extracted → better summaries
+- Better layout detection → improved title extraction
+- Overall: Better extraction improves the quality of the final output
 
 ---
 

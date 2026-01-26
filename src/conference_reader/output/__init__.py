@@ -1,5 +1,5 @@
-"""Output package for writing results."""
+"""Output package for writing results to files."""
 
-from .output_writer import OutputWriter
+from .csv_exporter import CSVExporter
 
-__all__ = ["OutputWriter"]
+__all__ = ["CSVExporter"]

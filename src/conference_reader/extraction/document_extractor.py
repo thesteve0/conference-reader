@@ -100,12 +100,8 @@ class DocumentExtractor:
 
         return DocumentConverter(
             format_options={
-                InputFormat.PDF: PdfFormatOption(
-                    pipeline_options=pipeline_options
-                ),
-                InputFormat.IMAGE: PdfFormatOption(
-                    pipeline_options=pipeline_options
-                ),
+                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+                InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options),
             }
         )
 
@@ -211,18 +207,19 @@ class DocumentExtractor:
 
         for i, path in enumerate(image_paths, start=1):
             filename = Path(path).name
+            print(f"DocumentExtractor: {filename}")
 
             if verbose:
                 print(f"Processing [{i}/{total}]: {filename}")
 
             doc = self.extract_single(path)
             results.append(doc)
+            if doc.processing_time is not None:
+                print(f"{filename} took {doc.processing_time:.2f} seconds\n")
 
             if verbose:
                 time_str = (
-                    f"{doc.processing_time:.2f}s"
-                    if doc.processing_time
-                    else "N/A"
+                    f"{doc.processing_time:.2f}s\n" if doc.processing_time else "N/A"
                 )
                 if doc.success:
                     print(f"  -> Success ({time_str})")
@@ -231,12 +228,9 @@ class DocumentExtractor:
 
             # Reset converter after slow extractions or failures to prevent
             # stuck threads from accumulating and exhausting GPU resources
-            needs_reset = (
-                not doc.success
-                or (
-                    doc.processing_time is not None
-                    and doc.processing_time > SLOW_EXTRACTION_THRESHOLD
-                )
+            needs_reset = not doc.success or (
+                doc.processing_time is not None
+                and doc.processing_time > SLOW_EXTRACTION_THRESHOLD
             )
             if needs_reset:
                 self._reset_converter(verbose=verbose)

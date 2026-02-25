@@ -1,5 +1,6 @@
 """TextSummarizer for generating summaries using SmolLM3-3B."""
 
+import time
 from dataclasses import replace
 from typing import List
 
@@ -148,4 +149,13 @@ Summary:"""
             List of new ProcessedDocument instances with summaries populated.
             Documents that failed extraction will have summary=None.
         """
-        return [self.summarize_single(doc) for doc in documents]
+        results = []
+
+        for i, doc in enumerate(documents, start=1):
+            print(f"TextSummarizer: {doc.filename}")
+            start_time = time.time()
+            results.append(self.summarize_single(doc))
+            elapsed = time.time() - start_time
+            print(f"{doc.filename} took {elapsed:.2f} seconds\n")
+
+        return results

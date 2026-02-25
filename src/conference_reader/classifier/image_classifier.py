@@ -156,14 +156,18 @@ Your one-word answer:"""
         total = len(image_paths)
 
         for i, path in enumerate(image_paths):
+            print(f"ImageClassifier: {path.name}")
             if verbose:
                 print(f"Classifying [{i + 1}/{total}]: {path.name}")
 
             result = self.classify(path)
             results.append(result)
+            print(f"{path.name} took {result.inference_time:.2f} seconds\n")
 
             if verbose:
-                print(f"  -> {result.image_type.value} ({result.inference_time:.2f}s)")
+                print(
+                    f"  -> {result.image_type.value} ({result.inference_time:.2f}s)\n"
+                )
 
         return results
 

@@ -1,0 +1,78 @@
+{
+  "extraction_date": "2026-02-26T06:37:17.901371",
+  "total_images": 4,
+  "successful": 4,
+  "failed": 0,
+  "ocr_engine": "easyocr",
+  "image_scale": 1.0,
+  "results": [
+    {
+      "filename": "IMG_1211.JPEG",
+      "file_path": "/data/neurips/poster_test/IMG_1211.JPEG",
+      "extracted_text": "MONITRS: Multimodal Observations of Natural Incidents\nNEURAL INFORMATION\nCornell University\nPROCESSING SYSTEMS\nThrough Remote Sensing\nShreelekha Revankar; Utkarsh Mall; Cheng Perng Phoo, Kavita Bala; Bharath Hariharan\nIntroduction\nDataset Creation Methodology\nExperiments\nKey Insight\nNews articles provide precise descriptions of\nResults\nFine-tuning on MONITRS-QA:\nspecific locations and describe daily progression\n91.66% event classification\n76.05% temporal grounding\nMethodology\nStarting with list of ~1k FEMA events, we then:\nOutperforms GPT-4.1 and Gemini 2.0-pro, and all baselines\n(1) Retrieve ~5 news articles per event\nParse news articles,obtain location names & captions\nGeocode the locations to find precise event location\nBaseline Models\nOur Fine-tuning\nNatural disasters cause\ndevastating damage annually: Affected\nDownload satellite images for the event duration\nTezions are often inaccessible,and manually analyzing satellite\nOpen source:\nBase: TEOchat\ninagery for all events is implausible\nLocations Mentioned In News Articles;\nCeoChat (RS specific; single\napes\nLeze\nburnlng southxard\nLocation:\nimage)\nData:\nTho\nalcng Cat Canyon Road #lth the\nTEOchat (RS specific)\nFull MONITRS -\nChallenge\nWe need to be able to quickly answer:\npotenti4]\n0\nreaching 100\nacrcs\nVideoLLaVA 78\nQA\ntraining\n\"hat events are\noccurring;\n\"Xandatory Evacuation Orders\nenaan\nset\nwhere they are\ntaking place;\neffect for_Balls Canyon Road\nClosed\n#MONITRS-QA\ntraining set\nhow they progress\nLong Valloy Road;\nand Copperfield\nsource:\nOur Extractod Locatlon:\nCemini 2.0-flash\nDetails:\nGemini 2.0-pro\nGPT-41\n4*\nA6OOO GPUs\nCurrent Limits\napproaches are limited by:\nepoch\nWaual expert interpretation requireda\nMetrics Accuracy\nStatistical\nLack of temporal\ngranularity in datasets\nLLM-as-judge\ntests;\nBLEUIROUGEIMETEOR;\nXo natural\nIlanguage annotations for event -\nscoring\nprogression\nOur\nObtalned Evont =\nResults:\nAutomatic geocoding and\npipeline for\nFema Obtalned Event Sequenco;\nwvents\nsatellite\nelua Fa\nantnentel Eyniaat\nafa0 (erfcd [7C4y\nand\nbenchmark\nmurunm\n070\nmodels\ngaps and\nEvdonco\nInlormatlon\nIrom nows\nncrojboo\nA New Dataset\ngroenary and\nartlclos usoc\ngoolocata\ndloodod\novont anc\n0s5 the United\nof 9,996 unique disaster =\nDescrptlons 0l Event _\nArticles:\nolons\nxlract\nfrom\ncapllons\n~osstuir d Nan Dcazters eoss beUS\n0.Khich date\nCo\nDlstributlon &l\nTpes\nI75\n70\nDIy,\ncathaz hae\n2022-0s-07shov8\n0E\nche\nonouct9a caplons va our Pipollno:\nD215\n8\ntae\nconditiona\nn\nJoe\n2022-06-01\nStorig?\nT\nMnond6t\nEstasrd\n6a\nEcteond Conida\nEaleaplel\nC:\n2022-06-06\nBageline\nIeua\n(es lo #read TepUl { 8ot3 tana &/\nuod\n2022=\nModele:\nRoanese E\n{0i\nera\nCotrect E\nGenini\n2\nIetoidl,\nIren\nKudhm (\n10,\nX\n157 g\" tekden (Noro a09} tad bered\nIiu\no\nIron\ncalinc\nOura\n4b\nCtccnnadbb\n53o\nFOMela\nSt\"\n0\nnoany\nmodels fail at\nconoa'\nepprotima\nMen\nNoo\n0:\nMarch 22\neou\nEllud\nEoeaa\nGemini\nMaech 22,\n2022\n469\n27th\n7th. Our\nand\nuseful\nas\nthe\nmodel\nonset,\ncorrectly\ndoturt\nanswer pairs.'\n'SSIFICATION\nand\niodmr\nirnogos?\n75 004\n'OIng\nIVENDATESL ,\n{\nM0o7\nITLIGHT\nExisting\nCcntributions\nSequence:\ncaptloning -\nDalaset\nnuaa Ut\nexposing \nfgundation\nimproving\nIlooding \nMONITRS -\nJrkenino\nUe\n{dataset 5\nconsisting =\nJrom\nincidents, -\nStates:\nlebt\nDisase \"\nevidence\nViny\n720\nCenslruclod 5\nSevere\nRobponbe?\nde\n@nd\naleaed\nEron\nVildta50\n65\naer030\n05-27\nronle\nAnarer\n0-E1a3h:\nCaroat\n4om =\nhoaloua\nMtch\n2022\nTeOchat:\nBo\neu9\nano} s\nEnerd =\nBaseline\nIar u#on\nDarad\ncr\"\ntemporal\nTEOchat\nMuat\nveralad\nincorrectly\ngrounding:\neccon\nchoose\nuent\nidentifies\n2.0-flash\nMay\nMay\nfinetuned\nCoen\nConnor\nstorm\nbenchmark, -\nWC\ncreated\nEvent\nClassificatlon,\nMONITRS-=\nQA,\nTemporal\nGroundlng\nEvent \nLocation\nClassilicalion\nGrounding\nTemporal =\nGrounding\ntoso\nsalollito\nLocaton\nGrounding\n[DATESL;\nwhlch",
+      "extraction_time": "2026-02-26T06:34:48.951684",
+      "success": true,
+      "error_message": null,
+      "processing_time_seconds": 69.51,
+      "original_size": [
+        2048,
+        1536
+      ],
+      "processed_size": [
+        4096,
+        3072
+      ]
+    },
+    {
+      "filename": "IMG_1212.JPEG",
+      "file_path": "/data/neurips/poster_test/IMG_1212.JPEG",
+      "extracted_text": "NEURAL INFORMATION\nORBENCH: Can VLMs See and Understand the Colorful World?\nPROCESSING SYSTEMS\nyprehensive Benchmark for Color Perception, Reasoning; and Robustness\nFan; Ziyue Li; Dang Nguyen, Kwesi Cobbina; Shweta Bhardwaj; Jiuhai Chen, Fuxiao Liu, Tianyi Zhou\nLiang\" , Min_\nLi\" , Chenrui\nuniversity of Maryl nd, College Park\nFinding 2: Low Performances\nRobustness\nPerception\nReasoning\nTL;DR\nColur Counting\nColor Robustnes\nColor P & ROwrall\nColor Robustnes\nColor Rorugaltion\nColor Comparkon\nColor Hlindacu\nVLMs show low\nORBENCH;\ncomprehensive benchmark to evaluate\nRlindac Ict\nLshorplae\nSard Inug\nModcl Sue\nModcl\nBest\nModel\nBot\nWe present COL\na\nF: nalls\nT&Tctau\nof VLMs across three key\nMU\nabsolute\nK7B\nCambnin-3B\n41S\nQwea2 S-VL 3B\n63.7\nthe color understanding capabilities\nperformance\n7B\nSB\nQuco2 $-VL-7B\n462\nQuca2 $-VL 7B\n744\ndimensions: (1) Color Perception; (2) Color Reasoning, and (3)\nIOB ~ 30B\nIntcmVL? $-26B\n46 8\natemVL2 $-268\n830\nThis benchmark consists of 1,448 instances and\nSmall gaps between\n30B\n~SOB\nInlemVL2 $-38B\nS0.0\nIntcrVL2 $-38B\n46\nColor Robustness\nand\n>70B\nLlava-Ov-72B\n51.9\nIntemVL2 S-78B\n42\n5,814 image-text questions spanning 11 diverse tasks.\nnhabe doal rad ol\nMtb u numbr In 01 (tn\ncolon\nopen-source\nPropnclary\nGemini- 2\n539\nGenini-2\n70.7\n6o\n6749r7\nottn (749t7\ncurt Int\nTargtt Scrmtal Rocolor\nproprietary models\nGcmini 2 (CoD)\n57.8\nGcmini-2 (CoD)\n736\nOamn\n0rn\n0Am\n2\nPropnctary\nOet\n0smon\nFom\n4tB\nc2\n0 2\nAni €\nIu\nWhy COLORBENCH\ned\nCi\nColor Frportlon\nColer Eutraction\nObjcct Counting\nAre VLMs Truly Aware of Color?\nL Celt Faktte\nLuu Imss\nMtctlile Imr\nExisting benchmarks rarely test color-centric perception or\nFinding 3: Add Reasoning Step\nreasoning\nLe\ncolor as a secondary cue_\nLanoeetl Rarcint\nCear Rnm\nGuut\n0' Ka\nCan VLMs\nStable Under Color Changes?\nWU\ncrt+4\n4a\nRobustness to variations (i.e. recoloring) remains largely\ncoeae\nPropoqen oltna Coherct\nden drin Co\nFace\nunexamined:\n0\nI\nReasoning steps boost VLM performance across most tasks\nDo VLMs Think in Color Like Humans?\n04\nMrA\nA\nColor Illuton\nColor Mlmko\nWhether VLMs can perceive and reason about color with\nOblad Rargantion\nLatia Ieze Iereler\nInatl Iuetka\nEe Mariee Dclecllen\nhuman-like proficiency; or how their performance deteriorates under\nLDeaAlap\nFinding 4: Effect of Colors\ncolor perturbations.\nVLMs rely on color cues\nData Curation\nin most tasks:\n1\nIn Illusion and Mimicry\nImage Sources: Web images \n0 %\nAntA\ntasks, color misleads\npublicly available benchmark,\nmodels: \nsynthetic data\nFinding 1: Scaling Law\nGrayscale images\nReasoning & Perception:\nOru\nsometimes improve\nwith human experts\nScaling law still\naccuracy:\nRobustnoss: recolored\nholds for color tasks\nvariants via hue shifts\nFiltering & Refinement:\nBUT relies more on\nContact\nVLM-assisted review removes\nthe language model\nYijun Liang: vlianalz@undedu\n2\nambiguous & unchallenging\nthan vision encoder\nMing Li: minali@umdedu\nsamples\nSpotlight\nKYAD\nStay\nL\n1\n1\n1\nL\nL\nL\nL\nI\n1",
+      "extraction_time": "2026-02-26T06:35:46.808516",
+      "success": true,
+      "error_message": null,
+      "processing_time_seconds": 57.86,
+      "original_size": [
+        2048,
+        1536
+      ],
+      "processed_size": [
+        4096,
+        3072
+      ]
+    },
+    {
+      "filename": "IMG_1223.JPEG",
+      "file_path": "/data/neurips/poster_test/IMG_1223.JPEG",
+      "extracted_text": "1400 configurations\nMRI ground truth\nWe cOr\n(a)\n250 hours of tactile data\nFLE\nTactile representation for soft objects\nEzoodez\nConditional tactile imaging\nCode\nWebsite\nPaper\nEach sam;\nTactile\nN\n0",
+      "extraction_time": "2026-02-26T06:35:53.654960",
+      "success": true,
+      "error_message": null,
+      "processing_time_seconds": 6.85,
+      "original_size": [
+        2048,
+        1536
+      ],
+      "processed_size": [
+        4096,
+        3072
+      ]
+    },
+    {
+      "filename": "IMG_1233.JPEG",
+      "file_path": "/data/neurips/poster_test/IMG_1233.JPEG",
+      "extracted_text": "Should Be\nFESCECSNFOSVSTE91\nMonitoring\nStatistically\nSPsed Diglav Heat\nFSU\nStandard for Al-Based\nvisar)@asu edu\nVisar Benisha\n{pdolln; weizhill;\nDolin; Welzhl LI; Gautam Dasarathy;\nPavel\nUniversity Tempe, AZ\nArizona State\n(4)\nImpacted\n(0) Hypothcais tests for coharis\n(2) Concept Drilt\n(3)\nHypothesis\nSubgroups\nMonitoring As\nTiesinnge !) opeved, 6\nCovariate Shift\nTests for Model\nIdentificalion\nFraming Post-Drolpy dcilt Montontistically sitorficant\nnnodel is alfocted by the changd\nPerf. Monitoring\natc\nshift ,\nconccpl\ndcgradation\n5\nIEsed Gor target label collectioof\nfor Data Shift Detection\ntost for model\nIdentilication\nand\nOnbel scarcity for cach of the\nHypothesis Tests\nsubgroup\nJS\naddresing\nrocalibration   One of the open\nmodcl\nModel\n(Model Recalibration)_\ndascribcd stage\nLabel Scarcily tor: (1), (2), (3)\nDeployed\nAddressing\nOverview\nAI-based healthcare\nrecent review found that only 9% of FDA-registered\nA\n~deployment surveillance plan;\n1.\nCovariate Shift\ninclude & post-C\nrdistributions in post-deployment\nto labels.\nModel faces changing\nperformance due to limited access\n]\n8\nIt is hard to monitor date\nmoddl }\n~deployment testing:\nThe FDA\neteticicnll ystalistipasy daliayesting in post-deploynersti\nHow do we do label-efficient,\nmonitoring as\nhypothesis testing:\nHo :\nPto (s,c) = Pt (s,c),\nProposed solution: Frame post-deployment\n2\n]\n3\nH :\nPto (s,c) # Ptz (s,c).\nNotation\nto,t1:\nPre- and post-deployment time points\nPe: data distribution at time t\nvariables C, and output label y\nS,C,y:\nmodel input features $, clinical/demographic\nDrift\n9, f:\nML model f , evaluation function g\n2. Concept\nM::\nPerformance metric (e g, accuracy, Fl) , with M: = g(f,pe)\nL\n8\nTdeg:\nEcghoidifor 'hoiminintole tabeptabio postcdedeoyuenioperformance\nThreshold for the minimum acceptable post-deployment\nTopec:\nG:\nCandidate patient subgroup G € S x C\n2\n]\n8\nHo :\nPto (s,€,y)\n=\nPt (s,€,y)\nHi :\nPto (s,€,y) # Pti (s,€,y).\nData Drift Reasons and Examples\nKcaton\nChane\nEmonhn)\nEronconorbidide\nDu0uiy\ncoty\nG\nDau Colkcaa MaEa\ncrcuec\n(S1\nan Camen:O\nTco\nQo1\nDhotone\n3. Model Performance\nTpihicion Eota\nTo\nIe\nHneutonMui\n3.1 Performance Deviation Testing\nLkol Mol\nUekenf\nUkntion[74\nSEm Oua\neck\nKEla\nAlin Clinkel\n]\n8\nHo\nMto - Mt <\n|\nHi\nMto - Mt >\nTable 2; Reasons and examples for covariate shift and concept drift in the healthcare domain,\n2\n1\n8\n3.2 Specification Threshold Testing\nHo :\n2\nChoosing\na Test Statistic\nHi :\n<\nTet\nWhcu t0 Usc\nNola\nDala Dhstrihutlon Atcumpuons\nWhca Populalion sLindurd dcviation\nKnoxn\nTwo Samnle ( Tex\nmmalily: known vatianee\nWca vanancsurc uatnown but uayunxd cqual\nWckch  (-lest\nmuntality: cqual vanancee\nVaxc arc uaknow and palcnllally uncuus]\nFlest\npormality uncqual vanancs\nImo Wnancc%; Alccted by skcnncts\nHutctt  Teu\nEutcads\nnortnality\nRTcxt (0 muluiplc Groups; morc Mablc than\nMann-Whibrey U Test\nnonnality\ndistribution thape Is unknown O nou-normal\nLacne s Tcy\nnorllity\nuncctlain\n4\nImpacted Subgroups\nKolmogorov-Suutuov (KS) Tcst\nGcncaal-purpoic teut; beyt for maxerate tarnple stcs\nAndcnon-Datliag Text\nWico\n2\n]\n8\nIdentification\n1\nFuicdman Raltty Text\nUs\nIdentifying thifts\nIjic cicniz\ncritical; bctter than KS text lor tall dillercaces\nEnph-buscd aPprusch ustng tininum\nMatitnum Mcan Discrcpunsy (MMD)\nEllcctive [\nepanning Ucc\n{o\ndelccung shifta\nhich-dimcn iona] dsl nccds,\nTable I:\n'of\n\"Pronalc kcmcl cholco\ntwo sample test statistics for\ndetecting differences\n%ssumptions and use cases All methods assume iid\nbctween Pto and ptt ,\n2\n]\nMG\n=\n9 (f,pe (s,€,y | G))\nvariance\ndata. Note:\n'M\" denotes mean,\n\"V\"\ndenotes\nmaxgcsxc M?\nS\nM?\nReferences\nMpJote\nMororo-Torres Ttoy Recoc; Rocio ,\nChJM), and Ftanasco Hetrora\nNtosh V\nctudealon Porom\nAuntngvawen dsbseaha n\nRecognaon; 481)621-830, Jarvary 2012\"\n4.\nP\nIUlu Wem Bottot Davd 0 \nAddressing Label Scarcity\nExeratory 4aa mning toe subyod O dhort adod end Cl-Ron Shau:\nIECE junu\nBrmed clai \ndaconlstond \nprcrt alon\nwzrale potcathal diretioa on addressing\n7020\nMoath hbormnatc:, 246) 146-146\ndawifcation todels undcr litnited\nEabd sardty\nroole In acthie\nwhich\np\nruich oariale Instanas\nbel\navailability;\naitns t0\nLeman Ad Fookiete, efA Nno Knotta\nc) chould bc habclod\nprincipled appraach (0\nMun\nMiching\nUa\nExccttenal mosel\nfoticatittoe Topically; tti involns Ooustrcting Ahcrchy proving the performance of Ohe ocodhes\nEjet\n310\nSpioc 7088\nDatabaeer\ninformatiieetas of\nBIURS tbe colariate\nSaistion function 9l6,c) that quantifen\ncot,\n%6,c) ssltd\nspace $ XC. Tbe Instance with the\nthe\nfor\nand used t0\nHghest ncqulsition\nPan! Doln VAuNL Gaula \nuplate the model f\nFosl\nDepbnnnt [\n0i0 y\nBerha Sue\"a5y\nDoul Neutn Meurarinbondstng Shouts Do Stndyd /o AH-Dated'\nIntrmaton\nSr\"arns (KeuriPs), 2025\nPersonal Website\nfor Internships\nValid\ngaulamd,\nhypothcsis\nHypothesis\nand\nperformed:\nperformnance\nperlormed\nimpacted\nproblems\ntools\n2\nand\npost-\nexpects\n2\n2\nTdcg,\nTdcg\nMtx\nTspec;\nMtx\nTspec\"\nwcn \nCompre\nHXel\n#en\nWizn \nSummary\nincluding\n8\nNixAodtquox\npona\ndoop\nlearning;\nDanA\notlcring \ncelecting\nLeinad\nKnottan\nDcotny\nAnstanoe\nUEAXG €Sac\nKabeling.\nV\nPrcceiend\nPaper\nLooking",
+      "extraction_time": "2026-02-26T06:37:17.900746",
+      "success": true,
+      "error_message": null,
+      "processing_time_seconds": 84.25,
+      "original_size": [
+        1536,
+        2048
+      ],
+      "processed_size": [
+        3072,
+        4096
+      ]
+    }
+  ]
+}

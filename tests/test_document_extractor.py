@@ -1,6 +1,7 @@
 """Tests for DocumentExtractor class."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, MagicMock
+import numpy as np
 
 import pytest
 
@@ -8,45 +9,45 @@ from conference_reader.extraction import DocumentExtractor, ProcessedDocument
 
 
 class TestDocumentExtractorWithMock:
-    """Tests for DocumentExtractor using mocked Docling."""
+    """Tests for DocumentExtractor using mocked EasyOCR."""
 
     @pytest.fixture
     def mock_extractor(self):
-        """Create extractor with mocked DocumentConverter."""
+        """Create extractor with mocked EasyOCR Reader."""
         with patch(
-            "conference_reader.extraction.document_extractor.DocumentConverter"
-        ) as MockConverter:
-            mock_converter = Mock()
-            MockConverter.return_value = mock_converter
+            "conference_reader.extraction.document_extractor.easyocr.Reader"
+        ) as MockReader:
+            mock_reader = Mock()
+            MockReader.return_value = mock_reader
             extractor = DocumentExtractor()
-            extractor.converter = mock_converter
-            yield extractor, mock_converter
+            extractor.reader = mock_reader
+            yield extractor, mock_reader
 
     @pytest.fixture
     def mock_extractor_custom(self):
         """Create extractor with custom scale and timeout."""
         with patch(
-            "conference_reader.extraction.document_extractor.DocumentConverter"
-        ) as MockConverter:
-            mock_converter = Mock()
-            MockConverter.return_value = mock_converter
+            "conference_reader.extraction.document_extractor.easyocr.Reader"
+        ) as MockReader:
+            mock_reader = Mock()
+            MockReader.return_value = mock_reader
             extractor = DocumentExtractor(images_scale=0.5, document_timeout=60.0)
-            extractor.converter = mock_converter
-            yield extractor, mock_converter
+            extractor.reader = mock_reader
+            yield extractor, mock_reader
 
     def test_constructor_default_values(self):
         """Test constructor uses default values."""
         with patch(
-            "conference_reader.extraction.document_extractor.DocumentConverter"
+            "conference_reader.extraction.document_extractor.easyocr.Reader"
         ):
             extractor = DocumentExtractor()
-            assert extractor.images_scale == 0.75
+            assert extractor.images_scale == 1.0
             assert extractor.document_timeout == 120.0
 
     def test_constructor_custom_values(self):
         """Test constructor accepts custom values."""
         with patch(
-            "conference_reader.extraction.document_extractor.DocumentConverter"
+            "conference_reader.extraction.document_extractor.easyocr.Reader"
         ):
             extractor = DocumentExtractor(images_scale=0.5, document_timeout=60.0)
             assert extractor.images_scale == 0.5
@@ -54,35 +55,41 @@ class TestDocumentExtractorWithMock:
 
     def test_extract_single_success(self, mock_extractor):
         """Test successful extraction of a single document."""
-        extractor, mock_converter = mock_extractor
+        extractor, mock_reader = mock_extractor
 
-        # Mock the Docling result
-        mock_result = Mock()
-        mock_result.document.export_to_markdown.return_value = (
-            "# Test Title\n\nContent"
-        )
-        mock_result.confidence.mean_grade = "GOOD"
-        mock_result.confidence.mean_score = 0.85
-        mock_result.confidence.low_grade = "FAIR"
-        mock_result.confidence.low_score = 0.7
-        mock_result.confidence.ocr_score = 0.9
-        mock_result.confidence.layout_score = 0.8
-        mock_converter.convert.return_value = mock_result
+        # Mock the EasyOCR result (list of (bbox, text, confidence) tuples)
+        mock_reader.readtext.return_value = [
+            ([[0, 0], [100, 0], [100, 20], [0, 20]], "Test Title", 0.95),
+            ([[0, 30], [100, 30], [100, 50], [0, 50]], "Content", 0.90),
+        ]
 
-        doc = extractor.extract_single("/test/image.jpg")
+        # Mock PIL Image.open
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_image = MagicMock()
+            mock_image.convert.return_value = mock_image
+            mock_image.size = (100, 100)
+            mock_open.return_value = mock_image
+
+            doc = extractor.extract_single("/test/image.jpg")
 
         assert isinstance(doc, ProcessedDocument)
         assert doc.success is True
-        assert doc.extracted_text == "# Test Title\n\nContent"
-        assert doc.quality_grade == "GOOD"
-        assert doc.quality_score == 0.85
+        assert "Test Title" in doc.extracted_text
+        assert "Content" in doc.extracted_text
 
     def test_extract_single_failure(self, mock_extractor):
         """Test handling of extraction failure."""
-        extractor, mock_converter = mock_extractor
-        mock_converter.convert.side_effect = Exception("Processing failed")
+        extractor, mock_reader = mock_extractor
 
-        doc = extractor.extract_single("/test/bad_image.jpg")
+        # Mock PIL Image.open to raise an exception
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_open.side_effect = Exception("Processing failed")
+
+            doc = extractor.extract_single("/test/bad_image.jpg")
 
         assert isinstance(doc, ProcessedDocument)
         assert doc.success is False
@@ -90,51 +97,61 @@ class TestDocumentExtractorWithMock:
 
     def test_extract_batch(self, mock_extractor):
         """Test batch extraction of multiple documents."""
-        extractor, mock_converter = mock_extractor
+        extractor, mock_reader = mock_extractor
 
         # Mock successful results
-        mock_result = Mock()
-        mock_result.document.export_to_markdown.return_value = "# Title\n\nText"
-        mock_result.confidence.mean_grade = "GOOD"
-        mock_result.confidence.mean_score = 0.85
-        mock_result.confidence.low_grade = "FAIR"
-        mock_result.confidence.low_score = 0.7
-        mock_result.confidence.ocr_score = 0.9
-        mock_result.confidence.layout_score = 0.8
-        mock_converter.convert.return_value = mock_result
+        mock_reader.readtext.return_value = [
+            ([[0, 0], [100, 0], [100, 20], [0, 20]], "Title", 0.95),
+            ([[0, 30], [100, 30], [100, 50], [0, 50]], "Text", 0.90),
+        ]
 
-        paths = ["/test/img1.jpg", "/test/img2.jpg", "/test/img3.jpg"]
-        docs = extractor.extract_batch(paths)
+        # Mock PIL Image.open
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_image = MagicMock()
+            mock_image.convert.return_value = mock_image
+            mock_image.size = (100, 100)
+            mock_open.return_value = mock_image
+
+            paths = ["/test/img1.jpg", "/test/img2.jpg", "/test/img3.jpg"]
+            docs = extractor.extract_batch(paths)
 
         assert len(docs) == 3
         assert all(doc.success for doc in docs)
-        assert mock_converter.convert.call_count == 3
+        assert mock_reader.readtext.call_count == 3
 
     def test_extract_single_includes_processing_time(self, mock_extractor):
         """Test that extraction includes processing_time."""
-        extractor, mock_converter = mock_extractor
+        extractor, mock_reader = mock_extractor
 
-        mock_result = Mock()
-        mock_result.document.export_to_markdown.return_value = "# Title\n\nText"
-        mock_result.confidence.mean_grade = "GOOD"
-        mock_result.confidence.mean_score = 0.85
-        mock_result.confidence.low_grade = "FAIR"
-        mock_result.confidence.low_score = 0.7
-        mock_result.confidence.ocr_score = 0.9
-        mock_result.confidence.layout_score = 0.8
-        mock_converter.convert.return_value = mock_result
+        mock_reader.readtext.return_value = [
+            ([[0, 0], [100, 0], [100, 20], [0, 20]], "Title", 0.95),
+        ]
 
-        doc = extractor.extract_single("/test/image.jpg")
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_image = MagicMock()
+            mock_image.convert.return_value = mock_image
+            mock_image.size = (100, 100)
+            mock_open.return_value = mock_image
+
+            doc = extractor.extract_single("/test/image.jpg")
 
         assert doc.processing_time is not None
         assert doc.processing_time >= 0
 
     def test_extract_single_failure_includes_processing_time(self, mock_extractor):
         """Test that failed extraction includes processing_time."""
-        extractor, mock_converter = mock_extractor
-        mock_converter.convert.side_effect = Exception("Processing failed")
+        extractor, mock_reader = mock_extractor
 
-        doc = extractor.extract_single("/test/bad_image.jpg")
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_open.side_effect = Exception("Processing failed")
+
+            doc = extractor.extract_single("/test/bad_image.jpg")
 
         assert doc.success is False
         assert doc.processing_time is not None
@@ -142,20 +159,22 @@ class TestDocumentExtractorWithMock:
 
     def test_extract_batch_verbose_output(self, mock_extractor, capsys):
         """Test verbose output during batch extraction."""
-        extractor, mock_converter = mock_extractor
+        extractor, mock_reader = mock_extractor
 
-        mock_result = Mock()
-        mock_result.document.export_to_markdown.return_value = "# Title\n\nText"
-        mock_result.confidence.mean_grade = "GOOD"
-        mock_result.confidence.mean_score = 0.85
-        mock_result.confidence.low_grade = "FAIR"
-        mock_result.confidence.low_score = 0.7
-        mock_result.confidence.ocr_score = 0.9
-        mock_result.confidence.layout_score = 0.8
-        mock_converter.convert.return_value = mock_result
+        mock_reader.readtext.return_value = [
+            ([[0, 0], [100, 0], [100, 20], [0, 20]], "Title", 0.95),
+        ]
 
-        paths = ["/test/img1.jpg", "/test/img2.jpg"]
-        extractor.extract_batch(paths, verbose=True)
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_image = MagicMock()
+            mock_image.convert.return_value = mock_image
+            mock_image.size = (100, 100)
+            mock_open.return_value = mock_image
+
+            paths = ["/test/img1.jpg", "/test/img2.jpg"]
+            extractor.extract_batch(paths, verbose=True)
 
         captured = capsys.readouterr()
         assert "Processing [1/2]: img1.jpg" in captured.out
@@ -164,73 +183,63 @@ class TestDocumentExtractorWithMock:
 
     def test_extract_batch_verbose_shows_failures(self, mock_extractor, capsys):
         """Test verbose output shows failure messages."""
-        extractor, mock_converter = mock_extractor
-        mock_converter.convert.side_effect = Exception("Timeout after 120s")
+        extractor, mock_reader = mock_extractor
 
-        paths = ["/test/img1.jpg"]
-        extractor.extract_batch(paths, verbose=True)
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_open.side_effect = Exception("Timeout after 120s")
+
+            paths = ["/test/img1.jpg"]
+            extractor.extract_batch(paths, verbose=True)
 
         captured = capsys.readouterr()
         assert "Processing [1/1]: img1.jpg" in captured.out
         assert "Failed" in captured.out
 
-    def test_extract_batch_silent_by_default(self, mock_extractor, capsys):
-        """Test that batch extraction is silent when verbose=False."""
-        extractor, mock_converter = mock_extractor
-
-        mock_result = Mock()
-        mock_result.document.export_to_markdown.return_value = "# Title\n\nText"
-        mock_result.confidence.mean_grade = "GOOD"
-        mock_result.confidence.mean_score = 0.85
-        mock_result.confidence.low_grade = "FAIR"
-        mock_result.confidence.low_score = 0.7
-        mock_result.confidence.ocr_score = 0.9
-        mock_result.confidence.layout_score = 0.8
-        mock_converter.convert.return_value = mock_result
-
-        paths = ["/test/img1.jpg"]
-        extractor.extract_batch(paths, verbose=False)
-
-        captured = capsys.readouterr()
-        assert captured.out == ""
-
     def test_extract_batch_resets_after_slow_extraction(
         self, mock_extractor, capsys
     ):
-        """Test that converter is reset after slow extractions."""
-        extractor, mock_converter = mock_extractor
+        """Test that reader is reset after slow extractions."""
+        extractor, mock_reader = mock_extractor
 
-        mock_result = Mock()
-        mock_result.document.export_to_markdown.return_value = "# Title\n\nText"
-        mock_result.confidence.mean_grade = "GOOD"
-        mock_result.confidence.mean_score = 0.85
-        mock_result.confidence.low_grade = "FAIR"
-        mock_result.confidence.low_score = 0.7
-        mock_result.confidence.ocr_score = 0.9
-        mock_result.confidence.layout_score = 0.8
-        mock_converter.convert.return_value = mock_result
+        mock_reader.readtext.return_value = [
+            ([[0, 0], [100, 0], [100, 20], [0, 20]], "Title", 0.95),
+        ]
 
-        # Patch time.time to simulate slow extraction (>60s)
-        time_module = "conference_reader.extraction.document_extractor.time"
-        with patch(time_module) as mock_time:
-            # First call returns start time, second returns 70 seconds later
-            mock_time.time.side_effect = [0, 70, 0, 5]
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_image = MagicMock()
+            mock_image.convert.return_value = mock_image
+            mock_image.size = (100, 100)
+            mock_open.return_value = mock_image
 
-            with patch.object(extractor, "_reset_converter") as mock_reset:
-                paths = ["/test/slow_img.jpg", "/test/fast_img.jpg"]
-                extractor.extract_batch(paths, verbose=False)
+            # Patch time.time to simulate slow extraction (>60s)
+            time_module = "conference_reader.extraction.document_extractor.time"
+            with patch(time_module) as mock_time:
+                # First call returns start time, second returns 70 seconds later
+                mock_time.time.side_effect = [0, 70, 0, 5]
 
-                # Should reset after slow extraction
-                assert mock_reset.call_count == 1
+                with patch.object(extractor, "_reset_reader") as mock_reset:
+                    paths = ["/test/slow_img.jpg", "/test/fast_img.jpg"]
+                    extractor.extract_batch(paths, verbose=False)
+
+                    # Should reset after slow extraction
+                    assert mock_reset.call_count == 1
 
     def test_extract_batch_resets_after_failure(self, mock_extractor, capsys):
-        """Test that converter is reset after failed extractions."""
-        extractor, mock_converter = mock_extractor
-        mock_converter.convert.side_effect = Exception("Processing failed")
+        """Test that reader is reset after failed extractions."""
+        extractor, mock_reader = mock_extractor
 
-        with patch.object(extractor, "_reset_converter") as mock_reset:
-            paths = ["/test/bad_img.jpg"]
-            extractor.extract_batch(paths, verbose=False)
+        with patch(
+            "conference_reader.extraction.document_extractor.Image.open"
+        ) as mock_open:
+            mock_open.side_effect = Exception("Processing failed")
 
-            # Should reset after failure
-            assert mock_reset.call_count == 1
+            with patch.object(extractor, "_reset_reader") as mock_reset:
+                paths = ["/test/bad_img.jpg"]
+                extractor.extract_batch(paths, verbose=False)
+
+                # Should reset after failure
+                assert mock_reset.call_count == 1

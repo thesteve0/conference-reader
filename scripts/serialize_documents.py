@@ -1,9 +1,9 @@
 """
 Serialize ProcessedDocuments for Experimentation
 
-This script extracts text from test images using Docling and serializes
+This script extracts text from test images using EasyOCR and serializes
 the resulting ProcessedDocuments to a file. This allows experimentation
-scripts to load pre-processed documents instead of running Docling repeatedly,
+scripts to load pre-processed documents instead of running OCR repeatedly,
 speeding up the SmolLM3 experimentation workflow.
 
 Usage:
@@ -61,7 +61,7 @@ def main():
             print("No images found. Nothing to serialize.")
             sys.exit(0)
 
-        # Step 2: Extract text using Docling
+        # Step 2: Extract text using EasyOCR
         print("Extracting text from images (this may take a minute)...")
         extractor = DocumentExtractor()
         documents = extractor.extract_batch(image_paths)

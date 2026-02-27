@@ -32,6 +32,12 @@ def apply_rocm_stability_settings() -> None:
     - PYTORCH_TUNABLEOP_ENABLED=1: Enable tunable ops
     - PYTORCH_TUNABLEOP_FILENAME: Cache tuned kernels
     """
+    # Fix deprecated PYTORCH_CUDA_ALLOC_CONF if present in environment
+    if "PYTORCH_CUDA_ALLOC_CONF" in os.environ:
+        val = os.environ.pop("PYTORCH_CUDA_ALLOC_CONF")
+        if "PYTORCH_ALLOC_CONF" not in os.environ:
+            os.environ["PYTORCH_ALLOC_CONF"] = val
+
     settings = {
         "HSA_ENABLE_SDMA": "0",
         "HSA_ENABLE_INTERRUPT": "0",

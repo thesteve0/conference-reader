@@ -1,18 +1,27 @@
-"""DocumentExtractor class for extracting text from images using Docling."""
+"""DocumentExtractor class for extracting text from images using EasyOCR."""
 
+# =============================================================================
+# Environment setup - must be done before importing torch (via easyocr)
+# =============================================================================
+import os
+
+# Fix deprecated PYTORCH_CUDA_ALLOC_CONF before torch imports
+if "PYTORCH_CUDA_ALLOC_CONF" in os.environ:
+    val = os.environ.pop("PYTORCH_CUDA_ALLOC_CONF")
+    if "PYTORCH_ALLOC_CONF" not in os.environ:
+        os.environ["PYTORCH_ALLOC_CONF"] = val
+
+# =============================================================================
+# Standard imports
+# =============================================================================
 import gc
 import time
 from pathlib import Path
 from typing import List, Optional
 
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import (
-    AcceleratorDevice,
-    AcceleratorOptions,
-    PdfPipelineOptions,
-    TesseractCliOcrOptions,
-)
-from docling.document_converter import DocumentConverter, PdfFormatOption
+import easyocr
+import numpy as np
+from PIL import Image
 
 from ..config.rocm_config import apply_rocm_stability_settings
 from .processed_document import ProcessedDocument
@@ -21,10 +30,30 @@ from .processed_document import ProcessedDocument
 SLOW_EXTRACTION_THRESHOLD = 60.0
 
 
-class DocumentExtractor:
-    """Extracts text from images using Docling's DocumentConverter.
+def _is_gpu_available() -> bool:
+    """Check if GPU is available for EasyOCR."""
+    try:
+        import torch
 
-    This class wraps Docling's DocumentConverter to provide a clean interface
+        return torch.cuda.is_available()
+    except ImportError:
+        return False
+
+
+def _disable_cudnn() -> None:
+    """Disable cuDNN/MIOpen for ROCm compatibility."""
+    try:
+        import torch
+
+        torch.backends.cudnn.enabled = False
+    except ImportError:
+        pass
+
+
+class DocumentExtractor:
+    """Extracts text from images using EasyOCR.
+
+    This class wraps EasyOCR to provide a clean interface
     for extracting text from conference poster images.
 
     Note:
@@ -32,93 +61,78 @@ class DocumentExtractor:
         this extractor using the ImageClassifier class.
 
     Attributes:
-        converter: Docling's DocumentConverter instance
+        reader: EasyOCR Reader instance
         images_scale: Scale factor for image resolution
-        document_timeout: Maximum seconds per document
+        document_timeout: Maximum seconds per document (not enforced by EasyOCR)
     """
 
     def __init__(
         self,
-        images_scale: float = 0.75,
+        images_scale: float = 1.0,
         document_timeout: Optional[float] = 120.0,
         use_gpu: bool = True,
     ):
         """Initialize DocumentExtractor with configuration options.
 
         Args:
-            images_scale: Scale factor for image resolution (default: 0.75).
+            images_scale: Scale factor for image resolution (default: 1.0).
                 0.5 = half resolution, 1.0 = full resolution, 2.0 = double.
             document_timeout: Maximum seconds per document (default: 120).
-                None = no timeout.
-            use_gpu: Whether to use GPU acceleration for layout detection
-                (default: True). OCR uses Tesseract which is CPU-only.
+                Note: EasyOCR doesn't support timeouts, kept for API compatibility.
+            use_gpu: Whether to use GPU acceleration (default: True).
         """
         # Apply ROCm stability settings for AMD GPUs before any GPU operations
         if use_gpu:
             apply_rocm_stability_settings()
 
+        # Disable cuDNN/MIOpen for ROCm compatibility
+        _disable_cudnn()
+
         self.images_scale = images_scale
         self.document_timeout = document_timeout
-        self.use_gpu = use_gpu
-        self.accelerator_options = self._create_accelerator_options()
-        self.converter = self._create_converter()
+        self.use_gpu = use_gpu and _is_gpu_available()
+        self.reader = self._create_reader()
 
-    def _create_accelerator_options(self) -> AcceleratorOptions:
-        """Create accelerator options for GPU/CPU device selection.
-
-        Returns:
-            Configured AcceleratorOptions instance
-        """
-        if self.use_gpu:
-            # AUTO will detect available GPU (CUDA/ROCm via HIP)
-            return AcceleratorOptions(
-                device=AcceleratorDevice.AUTO,
-                num_threads=4,
-            )
-        else:
-            return AcceleratorOptions(
-                device=AcceleratorDevice.CPU,
-                num_threads=4,
-            )
-
-    def _create_converter(self) -> DocumentConverter:
-        """Create a fresh DocumentConverter with current settings.
+    def _create_reader(self) -> easyocr.Reader:
+        """Create a fresh EasyOCR Reader with current settings.
 
         Returns:
-            Configured DocumentConverter instance
+            Configured EasyOCR Reader instance
         """
-        # Use Tesseract CLI for OCR (CPU-only, but more reliable than RapidOCR)
-        ocr_options = TesseractCliOcrOptions(lang=["eng"])
+        return easyocr.Reader(["en"], gpu=self.use_gpu)
 
-        pipeline_options = PdfPipelineOptions(
-            images_scale=self.images_scale,
-            document_timeout=self.document_timeout,
-            do_ocr=True,
-            ocr_options=ocr_options,
-            accelerator_options=self.accelerator_options,
-        )
+    def _scale_image(self, image: Image.Image) -> Image.Image:
+        """Scale image by the configured factor.
 
-        return DocumentConverter(
-            format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
-                InputFormat.IMAGE: PdfFormatOption(pipeline_options=pipeline_options),
-            }
-        )
+        Args:
+            image: PIL Image to scale
 
-    def _reset_converter(self, verbose: bool = False) -> None:
-        """Reset the converter to recover from stuck threads.
+        Returns:
+            Scaled image or original if scale is 1.0
+        """
+        if self.images_scale == 1.0:
+            return image
 
-        This cleans up GPU memory and creates a fresh converter instance.
-        Call this after timeouts or slow extractions to prevent resource leaks.
+        width, height = image.size
+        new_width = int(width * self.images_scale)
+        new_height = int(height * self.images_scale)
+
+        return image.resize((new_width, new_height), Image.LANCZOS)
+
+    def _reset_reader(self, verbose: bool = False) -> None:
+        """Reset the reader to recover from issues.
+
+        This cleans up GPU memory and creates a fresh reader instance.
+        Call this after slow extractions or failures to prevent resource leaks.
 
         Args:
             verbose: If True, print a message about the reset
         """
         if verbose:
-            print("  -> Resetting converter to recover resources...")
+            print("  -> Resetting reader to recover resources...")
 
-        # Delete old converter
-        del self.converter
+        # Delete old reader
+        del self.reader
 
         # Force garbage collection to release GPU memory
         gc.collect()
@@ -133,8 +147,8 @@ class DocumentExtractor:
         except (ImportError, RuntimeError):
             pass  # torch not available or no GPU
 
-        # Create fresh converter
-        self.converter = self._create_converter()
+        # Create fresh reader
+        self.reader = self._create_reader()
 
     def extract_single(self, image_path: str) -> ProcessedDocument:
         """Extract text from a single image file.
@@ -148,36 +162,32 @@ class DocumentExtractor:
         start_time = time.time()
 
         try:
-            # Convert the image using Docling
-            result = self.converter.convert(image_path)
+            # Load and optionally scale image
+            image = Image.open(image_path).convert("RGB")
+            image = self._scale_image(image)
+
+            # Convert PIL Image to numpy array for EasyOCR
+            image_array = np.array(image)
+
+            # Run OCR
+            results = self.reader.readtext(image_array)
+
             processing_time = time.time() - start_time
 
-            # Extract the text as markdown
-            extracted_text = result.document.export_to_markdown()
-
-            # Extract quality metrics from Docling's confidence scores
-            confidence = result.confidence
+            # Extract text from results
+            # Each result is (bbox, text, confidence)
+            extracted_text = "\n".join([r[1] for r in results])
 
             return ProcessedDocument.from_path(
                 file_path=image_path,
                 extracted_text=extracted_text,
                 success=True,
-                quality_grade=str(confidence.mean_grade),
-                quality_score=confidence.mean_score,
-                low_quality_grade=str(confidence.low_grade),
-                low_score=confidence.low_score,
-                ocr_score=confidence.ocr_score,
-                layout_score=confidence.layout_score,
                 processing_time=processing_time,
             )
 
         except Exception as e:
             processing_time = time.time() - start_time
             error_msg = str(e)
-
-            # Make timeout errors more readable
-            if "timeout" in error_msg.lower():
-                error_msg = f"Timeout after {processing_time:.1f}s"
 
             return ProcessedDocument.from_error(
                 file_path=image_path,
@@ -192,8 +202,8 @@ class DocumentExtractor:
     ) -> List[ProcessedDocument]:
         """Extract text from multiple image files.
 
-        After slow extractions (>60s) or failures, the converter is reset
-        to recover GPU resources and prevent stuck threads from accumulating.
+        After slow extractions (>60s) or failures, the reader is reset
+        to recover GPU resources and prevent issues from accumulating.
 
         Args:
             image_paths: List of paths to image files to process
@@ -226,13 +236,13 @@ class DocumentExtractor:
                 else:
                     print(f"  -> Failed: {doc.error_message} ({time_str})")
 
-            # Reset converter after slow extractions or failures to prevent
-            # stuck threads from accumulating and exhausting GPU resources
+            # Reset reader after slow extractions or failures to prevent
+            # issues from accumulating and exhausting GPU resources
             needs_reset = not doc.success or (
                 doc.processing_time is not None
                 and doc.processing_time > SLOW_EXTRACTION_THRESHOLD
             )
             if needs_reset:
-                self._reset_converter(verbose=verbose)
+                self._reset_reader(verbose=verbose)
 
         return results
